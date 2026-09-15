@@ -1,6 +1,32 @@
 import cv2
 
 
+def draw_panel(
+    frame,
+    top_left,
+    bottom_right,
+    alpha=0.55
+):
+    overlay = frame.copy()
+
+    cv2.rectangle(
+        overlay,
+        top_left,
+        bottom_right,
+        (0, 0, 0),
+        -1
+    )
+
+    cv2.addWeighted(
+        overlay,
+        alpha,
+        frame,
+        1 - alpha,
+        0,
+        frame
+    )
+
+
 def draw_mouth_points(frame, points):
     height, width, _ = frame.shape
 
@@ -22,34 +48,67 @@ def draw_main_info(
     expression,
     fps
 ):
-    cv2.putText(
+    # Top header panel
+    draw_panel(
         frame,
-        f"Reaction: {expression}",
-        (20, 45),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 255),
-        3
+        (0, 0),
+        (frame.shape[1], 95)
     )
 
     cv2.putText(
         frame,
-        f"FPS: {fps:.1f}",
-        (20, 80),
+        "MONKEY REACTION",
+        (20, 35),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.9,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"Reaction: {expression}",
+        (20, 75),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"{fps:.1f} FPS",
+        (frame.shape[1] - 115, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
         (255, 255, 255),
         2
     )
 
 
 def draw_debug_info(frame, data):
+    draw_panel(
+        frame,
+        (15, 110),
+        (310, 245)
+    )
+
+    cv2.putText(
+        frame,
+        "DEBUG",
+        (30, 135),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 255, 0),
+        2
+    )
+
     cv2.putText(
         frame,
         f"Width: {data['mouth_width_ratio']:.3f}",
-        (20, 120),
+        (30, 165),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
+        0.55,
         (255, 255, 255),
         2
     )
@@ -57,9 +116,9 @@ def draw_debug_info(frame, data):
     cv2.putText(
         frame,
         f"Open: {data['mouth_open_ratio']:.3f}",
-        (20, 150),
+        (30, 190),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
+        0.55,
         (255, 255, 255),
         2
     )
@@ -67,9 +126,9 @@ def draw_debug_info(frame, data):
     cv2.putText(
         frame,
         f"Shape: {data['mouth_shape_ratio']:.3f}",
-        (20, 180),
+        (30, 215),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
+        0.55,
         (255, 255, 255),
         2
     )
@@ -77,35 +136,42 @@ def draw_debug_info(frame, data):
     cv2.putText(
         frame,
         f"Raw: {data['raw_expression']}",
-        (20, 210),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2
-    )
-
-
-def draw_controls(frame):
-    cv2.putText(
-        frame,
-        "Q: Quit   D: Debug   S: Screenshot   R: Reset Stats",
-        (20, frame.shape[0] - 20),
+        (30, 240),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
         (255, 255, 255),
         2
     )
 
+
 def draw_stats(frame, stats):
-    x = 25
-    y = 50
+    height, width, _ = frame.shape
+
+    panel_width = min(420, width - 40)
+
+    draw_panel(
+        frame,
+        (20, height - 225),
+        (20 + panel_width, height - 40),
+        0.65
+    )
 
     cv2.putText(
         frame,
         "SESSION STATS",
-        (x, y),
+        (40, height - 190),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
+        0.75,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"Thinking  {stats.durations['THINKING']:.1f}s",
+        (40, height - 150),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
         (255, 255, 255),
         2
     )
@@ -113,12 +179,13 @@ def draw_stats(frame, stats):
     cv2.putText(
         frame,
         (
-            f"Thinking: "
-            f"{stats.durations['THINKING']:.1f}s"
+            f"Smiling   "
+            f"{stats.durations['SMILING']:.1f}s"
+            f"   x{stats.counts['SMILING']}"
         ),
-        (x, y + 45),
+        (40, height - 115),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.6,
         (255, 255, 255),
         2
     )
@@ -126,40 +193,44 @@ def draw_stats(frame, stats):
     cv2.putText(
         frame,
         (
-            f"Smiling: "
-            f"{stats.durations['SMILING']:.1f}s "
-            f"({stats.counts['SMILING']} times)"
+            f"Shocked   "
+            f"{stats.durations['SHOCKED']:.1f}s"
+            f"   x{stats.counts['SHOCKED']}"
         ),
-        (x, y + 80),
+        (40, height - 80),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.6,
         (255, 255, 255),
         2
     )
 
     cv2.putText(
         frame,
-        (
-            f"Shocked: "
-            f"{stats.durations['SHOCKED']:.1f}s "
-            f"({stats.counts['SHOCKED']} times)"
-        ),
-        (x, y + 115),
+        f"Session: {stats.get_session_time():.1f}s",
+        (width - 180, 35),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.55,
         (255, 255, 255),
         2
     )
 
+
+def draw_controls(frame):
+    height, width, _ = frame.shape
+
+    draw_panel(
+        frame,
+        (0, height - 35),
+        (width, height),
+        0.65
+    )
+
     cv2.putText(
         frame,
-        (
-            f"Session: "
-            f"{stats.get_session_time():.1f}s"
-        ),
-        (x, y + 165),
+        "Q Quit   D Debug   S Screenshot   R Reset   F Fullscreen",
+        (20, height - 10),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.5,
         (255, 255, 255),
-        2
+        1
     )

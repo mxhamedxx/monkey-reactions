@@ -18,6 +18,14 @@ from ui import (
 def main():
     camera = cv2.VideoCapture(0)
 
+    window_name = "Monkey Reaction"
+    fullscreen = False
+
+    cv2.namedWindow(
+        window_name,
+        cv2.WINDOW_NORMAL
+    )
+
     if not camera.isOpened():
         print("Could not open webcam.")
         return
@@ -127,7 +135,7 @@ def main():
         )
 
         cv2.imshow(
-            "Monkey Reaction",
+            window_name,
             combined
         )
 
@@ -166,6 +174,27 @@ def main():
             print(
                 "Reaction statistics reset."
             )
+
+        elif key == ord("f"):
+            fullscreen = not fullscreen
+
+            if fullscreen:
+                cv2.setWindowProperty(
+                    window_name,
+                    cv2.WND_PROP_FULLSCREEN,
+                    cv2.WINDOW_FULLSCREEN
+                )
+
+                print("Fullscreen mode enabled.")
+
+            else:
+                cv2.setWindowProperty(
+                    window_name,
+                    cv2.WND_PROP_FULLSCREEN,
+                    cv2.WINDOW_NORMAL
+                )
+
+                print("Fullscreen mode disabled.")
 
     detector.close()
 
