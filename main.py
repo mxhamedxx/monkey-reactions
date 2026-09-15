@@ -26,6 +26,29 @@ def classify_expression(mouth_width_ratio, mouth_open_ratio):
 
     return "THINKING"
 
+def load_reaction_images():
+    thinking = cv2.imread("assets/thinking.png")
+    smiling = cv2.imread("assets/smiling.png")
+    shocked = cv2.imread("assets/shocked.png")
+
+    if thinking is None:
+        raise FileNotFoundError("Could not load assets/thinking.png")
+
+    if smiling is None:
+        raise FileNotFoundError("Could not load assets/smiling.png")
+
+    if shocked is None:
+        raise FileNotFoundError("Could not load assets/shocked.png")
+
+    return {
+        "THINKING": thinking,
+        "SMILING": smiling,
+        "SHOCKED": shocked
+    }
+
+def resize_image(image, width, height):
+    return cv2.resize(image, (width, height))
+
 def main():
     camera = cv2.VideoCapture(0)
 
@@ -52,6 +75,8 @@ def main():
             print("Could not read camera frame.")
             break
 
+        reaction_images = load_reaction_images()
+        
         # Mirror camera
         frame = cv2.flip(frame, 1)
 
@@ -63,6 +88,8 @@ def main():
 
         # Detect face landmarks
         results = face_mesh.process(rgb_frame)
+
+        expression = "THINKING"
 
         # If a face was detected
         if results.multi_face_landmarks:
@@ -129,41 +156,39 @@ def main():
                 2
             )
 
-            # Draw the four mouth points
-            height, width, _ = frame.shape
+        cv2.putText(
+            frame,
+            f"Reaction: {expression}",
+            (20, 120),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 255),
+            3
+        )
 
-            mouth_points = [
-                left_mouth,
-                right_mouth,
-                upper_lip,
-                lower_lip
-            ]
+        # Get the correct monkey
+        monkey = reaction_images[expression]
 
-            for point in mouth_points:
-                x = int(point.x * width)
-                y = int(point.y * height)
+        # Make monkey image same size as webcam frame
+        frame_height, frame_width, _ = frame.shape
 
-                cv2.circle(
-                    frame,
-                    (x, y),
-                    5,
-                    (0, 255, 0),
-                    -1
-                )
+        monkey = resize_image(
+            monkey,
+            frame_width,
+            frame_height
+        )
 
-            # Display the current expression
-            cv2.putText(
-                frame,
-                f"Reaction: {expression}",
-                (20, 120),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 255),
-                3
-            )
+        # Put webcam and monkey side-by-side
+        combined = cv2.hconcat([
+            frame,
+            monkey,
+        ])
 
-        cv2.imshow("Monkey Reaction", frame)
-
+        cv2.imshow(
+            "Monkey Reaction",
+            combined
+        )
+  
         # Press Q to close
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
