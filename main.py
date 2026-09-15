@@ -1,15 +1,15 @@
 import cv2
 import mediapipe as mp
 import math
+import time
 
 from collections import deque, Counter
 
 
 # Starting thresholds.
-# We can can tune these based on our webcam/face later
-SHOCKED_THRESHOLD = 0.075
 SMILE_WIDTH_THRESHOLD = 0.39
-SMILE_OPEN_LIMIT = 0.065
+SHOCKED_SHAPE_THRESHOLD = 0.30
+SHOCKED_OPEN_THRESHOLD = 0.075
 
 HISTORY_SIZE = 7
 
@@ -19,15 +19,21 @@ def distance(point1, point2):
         (point1.y - point2.y) ** 2
     )
 
-def classify_expression(mouth_width_ratio, mouth_open_ratio):
-    if mouth_open_ratio > SHOCKED_THRESHOLD:
-        return "SHOCKED"
-
+def classify_expression(mouth_width_ratio, mouth_open_ratio, mouth_shape_ratio):
+    # wide mouth usually means smiling,
+    # even if teeth make the mouth somewhat open
     if (
         mouth_width_ratio > SMILE_WIDTH_THRESHOLD
-        and mouth_open_ratio < SMILE_OPEN_LIMIT
+        and mouth_shape_ratio < SHOCKED_SHAPE_THRESHOLD
     ):
         return "SMILING"
+
+    # Shocked mouth is both open and round/tall.
+    if (
+        mouth_open_ratio > SHOCKED_OPEN_THRESHOLD
+        and mouth_open_ratio >= SHOCKED_SHAPE_THRESHOLD
+    ):
+        return "SHOCKED"
 
     return "THINKING"
 
@@ -59,6 +65,21 @@ def load_reaction_images():
 def resize_image(image, width, height):
     return cv2.resize(image, (width, height))
 
+def draw_debug_points(frame, points):
+    height, width, _ = frame.shape
+
+    for point in points:
+        x = int(point.x * width)
+        y = int(point.y * height)
+
+        cv2.circle(
+            frame,
+            (x, y),
+            5,
+            (0, 255, 0),
+            -1
+        )
+
 def main():
     camera = cv2.VideoCapture(0)
 
@@ -83,6 +104,19 @@ def main():
         min_tracking_confidence=0.5,
     )
 
+    debug_mode = False
+
+    previous_time = time.time()
+
+    fps = 0
+
+    screnshot_count = 1
+
+    print("Monkey Reaction started!")
+    print("Q = Quit")
+    print("D = Toggle debug mode")
+    print("S = Screenshot")
+
     print("Camera started! Press Q to quit.")
 
     while True:
@@ -105,6 +139,10 @@ def main():
         results = face_mesh.process(rgb_frame)
 
         raw_expression = "THINKING"
+
+        mouth_width_ratio = 0
+        mouth_open_ratio = 0
+        mouth_shape_ratio = 0
 
         # If a face was detected
         if results.multi_face_landmarks:
@@ -143,58 +181,124 @@ def main():
             mouth_width_ratio = mouth_width / face_width
             mouth_open_ratio = mouth_opening / face_width
 
+            # Measures whether the mouth is wide like a small or tall like a shock
+            mouth_shape_ratio = mouth_opening / mouth_width
+
             # Classify expression
             raw_expression = classify_expression(
                 mouth_width_ratio,
-                mouth_open_ratio
+                mouth_open_ratio,
+                mouth_shape_ratio
             )
 
-            # Display measurements
-            cv2.putText(
-                frame,
-                f"Mouth Width: {mouth_width_ratio:.3f}",
-                (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+            if debug_mode:
+                draw_debug_points(
+                    frame,
+                    [
+                        left_mouth,
+                        right_mouth,
+                        upper_lip,
+                        lower_lip
+                    ]
+                )
 
-            cv2.putText(
-                frame,
-                f"Mouth Open: {mouth_open_ratio:.3f}",
-                (20, 75),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-        # Add current prediction to history
         expression_history.append(
             raw_expression
         )
 
-        # Pick the most common recent reaction
         expression = get_smooth_expression(
             expression_history
         )
 
+        # FPS calculation
+        current_time = time.time()
+
+        delta_time = (
+            current_time - previous_time
+        )
+
+        if delta_time > 0:
+            current_fps = 1 / delta_time
+
+            # Smooth FPS slightly
+            fps = (
+                0.9 * fps +
+                0.1 * current_fps
+            )
+
+        previous_time = current_time
+
+        # Main reaction text
         cv2.putText(
             frame,
             f"Reaction: {expression}",
-            (20, 120),
+            (20, 45),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (0, 255, 255),
             3
         )
 
-        # Get the correct monkey
-        monkey = reaction_images[expression]
+        # FPS
+        cv2.putText(
+            frame,
+            f"FPS: {fps:.1f}",
+            (20, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.65,
+            (255, 255, 255),
+            2
+        )
 
-        # Make monkey image same size as webcam frame
-        frame_height, frame_width, _ = frame.shape
+        # Debug values
+        if debug_mode:
+            cv2.putText(
+                frame,
+                f"Width: {mouth_width_ratio:.3f}",
+                (20, 120),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Open: {mouth_open_ratio:.3f}",
+                (20, 150),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Shape: {mouth_shape_ratio:.3f}",
+                (20, 180),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Raw: {raw_expression}",
+                (20, 210),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2
+            )
+
+        monkey = reaction_images[
+            expression
+        ]
+
+        frame_height, frame_width, _ = (
+            frame.shape
+        )
 
         monkey = resize_image(
             monkey,
@@ -202,20 +306,55 @@ def main():
             frame_height
         )
 
-        # Put webcam and monkey side-by-side
         combined = cv2.hconcat([
             frame,
-            monkey,
+            monkey
         ])
+
+        # Controls
+        cv2.putText(
+            combined,
+            "Q: Quit   D: Debug   S: Screenshot",
+            (20, combined.shape[0] - 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            2
+        )
 
         cv2.imshow(
             "Monkey Reaction",
             combined
         )
-  
-        # Press Q to close
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord("q"):
             break
+
+        elif key == ord("d"):
+            debug_mode = not debug_mode
+
+            print(
+                f"Debug mode: {debug_mode}"
+            )
+
+        elif key == ord("s"):
+            filename = (
+                f"monkey_reaction_"
+                f"{screenshot_count}.png"
+            )
+
+            cv2.imwrite(
+                filename,
+                combined
+            )
+
+            print(
+                f"Screenshot saved: {filename}"
+            )
+
+            screenshot_count += 1
 
     face_mesh.close()
     camera.release()
