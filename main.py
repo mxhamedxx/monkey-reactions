@@ -2,11 +2,16 @@ import cv2
 import mediapipe as mp
 import math
 
+from collections import deque, Counter
+
+
 # Starting thresholds.
 # We can can tune these based on our webcam/face later
 SHOCKED_THRESHOLD = 0.075
 SMILE_WIDTH_THRESHOLD = 0.39
 SMILE_OPEN_LIMIT = 0.065
+
+HISTORY_SIZE = 7
 
 def distance(point1, point2):
     return math.sqrt(
@@ -25,6 +30,11 @@ def classify_expression(mouth_width_ratio, mouth_open_ratio):
         return "SMILING"
 
     return "THINKING"
+
+def get_smooth_expression(history):
+    counts = Counter(history)
+
+    return counts.most_common(1)[0][0]
 
 def load_reaction_images():
     thinking = cv2.imread("assets/thinking.png")
@@ -56,6 +66,13 @@ def main():
         print("Could not open webcam.")
         return
 
+    reaction_images = load_reaction_images()
+
+    # Stores recent expression predictions
+    expression_history = deque(
+        maxlen=HISTORY_SIZE
+    )
+
     mp_face_mesh = mp.solutions.face_mesh
 
     face_mesh = mp_face_mesh.FaceMesh(
@@ -75,8 +92,6 @@ def main():
             print("Could not read camera frame.")
             break
 
-        reaction_images = load_reaction_images()
-        
         # Mirror camera
         frame = cv2.flip(frame, 1)
 
@@ -89,11 +104,10 @@ def main():
         # Detect face landmarks
         results = face_mesh.process(rgb_frame)
 
-        expression = "THINKING"
+        raw_expression = "THINKING"
 
         # If a face was detected
         if results.multi_face_landmarks:
-
             face_landmarks = results.multi_face_landmarks[0]
 
             landmarks = face_landmarks.landmark
@@ -130,7 +144,7 @@ def main():
             mouth_open_ratio = mouth_opening / face_width
 
             # Classify expression
-            expression = classify_expression(
+            raw_expression = classify_expression(
                 mouth_width_ratio,
                 mouth_open_ratio
             )
@@ -155,6 +169,16 @@ def main():
                 (255, 255, 255),
                 2
             )
+
+        # Add current prediction to history
+        expression_history.append(
+            raw_expression
+        )
+
+        # Pick the most common recent reaction
+        expression = get_smooth_expression(
+            expression_history
+        )
 
         cv2.putText(
             frame,
