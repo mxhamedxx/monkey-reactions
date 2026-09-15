@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 monkey_reaction_*.png
+build/
+dist/
+*.spec
