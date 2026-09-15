@@ -2,11 +2,29 @@ import cv2
 import mediapipe as mp
 import math
 
+# Starting thresholds.
+# We can can tune these based on our webcam/face later
+SHOCKED_THRESHOLD = 0.075
+SMILE_WIDTH_THRESHOLD = 0.39
+SMILE_OPEN_LIMIT = 0.065
+
 def distance(point1, point2):
     return math.sqrt(
         (point1.x - point2.x) ** 2 +
         (point1.y - point2.y) ** 2
     )
+
+def classify_expression(mouth_width_ratio, mouth_open_ratio):
+    if mouth_open_ratio > SHOCKED_THRESHOLD:
+        return "SHOCKED"
+
+    if (
+        mouth_width_ratio > SMILE_WIDTH_THRESHOLD
+        and mouth_open_ratio < SMILE_OPEN_LIMIT
+    ):
+        return "SMILING"
+
+    return "THINKING"
 
 def main():
     camera = cv2.VideoCapture(0)
@@ -64,7 +82,7 @@ def main():
             left_face = landmarks[234]
             right_face = landmarks[454]
 
-            # calculate distances
+            # distances
             mouth_width = distance(
                 left_mouth,
                 right_mouth
@@ -83,6 +101,12 @@ def main():
             # Normalize measurements
             mouth_width_ratio = mouth_width / face_width
             mouth_open_ratio = mouth_opening / face_width
+
+            # Classify expression
+            expression = classify_expression(
+                mouth_width_ratio,
+                mouth_open_ratio
+            )
 
             # Display measurements
             cv2.putText(
@@ -126,6 +150,17 @@ def main():
                     (0, 255, 0),
                     -1
                 )
+
+            # Display the current expression
+            cv2.putText(
+                frame,
+                f"Reaction: {expression}",
+                (20, 120),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 255),
+                3
+            )
 
         cv2.imshow("Monkey Reaction", frame)
 
