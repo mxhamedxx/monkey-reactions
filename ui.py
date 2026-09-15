@@ -88,10 +88,78 @@ def draw_debug_info(frame, data):
 def draw_controls(frame):
     cv2.putText(
         frame,
-        "Q: Quit   D: Debug   S: Screenshot",
+        "Q: Quit   D: Debug   S: Screenshot   R: Reset Stats",
         (20, frame.shape[0] - 20),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
+        (255, 255, 255),
+        2
+    )
+
+def draw_stats(frame, stats):
+    x = 25
+    y = 50
+
+    cv2.putText(
+        frame,
+        "SESSION STATS",
+        (x, y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        (
+            f"Thinking: "
+            f"{stats.durations['THINKING']:.1f}s"
+        ),
+        (x, y + 45),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        (
+            f"Smiling: "
+            f"{stats.durations['SMILING']:.1f}s "
+            f"({stats.counts['SMILING']} times)"
+        ),
+        (x, y + 80),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        (
+            f"Shocked: "
+            f"{stats.durations['SHOCKED']:.1f}s "
+            f"({stats.counts['SHOCKED']} times)"
+        ),
+        (x, y + 115),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        (
+            f"Session: "
+            f"{stats.get_session_time():.1f}s"
+        ),
+        (x, y + 165),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
         (255, 255, 255),
         2
     )

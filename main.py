@@ -4,11 +4,14 @@ import cv2
 
 from detector import ExpressionDetector
 from reactions import ReactionImages
+from stats import ReactionStats
+
 from ui import (
     draw_controls,
     draw_debug_info,
     draw_main_info,
-    draw_mouth_points
+    draw_mouth_points,
+    draw_stats
 )
 
 
@@ -21,6 +24,7 @@ def main():
 
     detector = ExpressionDetector()
     reaction_images = ReactionImages()
+    stats = ReactionStats()
 
     debug_mode = False
 
@@ -34,6 +38,7 @@ def main():
     print("Q = Quit")
     print("D = Toggle debug mode")
     print("S = Screenshot")
+    print("R = Reset statistics")
 
     while True:
         success, frame = camera.read()
@@ -56,6 +61,12 @@ def main():
             rgb_frame
         )
 
+        # Update reaction statistics
+        stats.update(
+            data["expression"]
+        )
+
+        # FPS
         current_time = time.time()
 
         delta_time = (
@@ -100,6 +111,12 @@ def main():
             frame_height
         )
 
+        # Draw statistics on monkey side
+        draw_stats(
+            monkey,
+            stats
+        )
+
         combined = cv2.hconcat([
             frame,
             monkey
@@ -142,6 +159,13 @@ def main():
             )
 
             screenshot_count += 1
+
+        elif key == ord("r"):
+            stats.reset()
+
+            print(
+                "Reaction statistics reset."
+            )
 
     detector.close()
 
